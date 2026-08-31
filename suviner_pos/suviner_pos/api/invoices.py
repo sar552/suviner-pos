@@ -716,9 +716,12 @@ def update_invoice(data):
         invoice_doc.calculate_taxes_and_totals()
 
     # Ensure selected currency is preserved after set_missing_values
+    # DIQQAT: company_currency SHARTSIZ aniqlanadi — ilgari faqat
+    # selected_currency bo'lganda aniqlanib, aks holda keyingi qatorda
+    # UnboundLocalError bilan submit qulardi (2026-08-31 audit).
+    company_currency = frappe.get_cached_value("Company", invoice_doc.company, "default_currency")
     if selected_currency:
         invoice_doc.currency = selected_currency
-        company_currency = frappe.get_cached_value("Company", invoice_doc.company, "default_currency")
     price_list_currency = price_list_currency or company_currency
 
     conversion_rate = 1
@@ -944,8 +947,11 @@ def _create_change_payment_entries(invoice_doc, data, pos_profile=None, cash_acc
         advance_payment_entry.party = invoice_doc.get("customer")
         advance_payment_entry.company = invoice_doc.get("company")
         advance_payment_entry.posting_date = posting_date
-        advance_payment_entry.paid_from = cash_account_name
-        advance_payment_entry.paid_to = party_account
+        # Receive PE: paid_from = partiya (Debtors) hisobi, paid_to = kassa.
+        # Ilgari teskari qo'yilgani uchun ERPNext validatsiyasidan hech
+        # qachon o'tmasdi (2026-08-31 audit, runtime'da tasdiqlangan).
+        advance_payment_entry.paid_from = party_account
+        advance_payment_entry.paid_to = cash_account_name
         advance_payment_entry.paid_amount = credit_change_amount
         advance_payment_entry.received_amount = credit_change_amount
         advance_payment_entry.difference_amount = 0
@@ -1089,7 +1095,10 @@ def submit_invoice(invoice, data, submit_in_background=False):
     # calculating cash
     total_cash = 0
     if data.get("redeemed_customer_credit"):
-        total_cash = invoice_doc.total - float(data.get("redeemed_customer_credit"))
+        # grand_total — mijoz to'laydigan haqiqiy summa (ilgari .total —
+        # soliq/umumiy chegirmadan OLDINGI summa ishlatilib, naqd hisobi
+        # noto'g'ri chiqardi; 2026-08-31 audit)
+        total_cash = invoice_doc.grand_total - float(data.get("redeemed_customer_credit"))
 
     is_payment_entry = 0
     if data.get("redeemed_customer_credit"):
@@ -1184,6 +1193,21 @@ def submit_invoice(invoice, data, submit_in_background=False):
         )
     else:
         invoice_doc.submit()
+
+        # DIQQAT: submit ichidagi validate ERPNextning set_pos_fields'ini
+        # QAYTA yurgizib, selling_price_list YOZUVINI profil ro'yxatiga
+        # qaytarib qo'yadi (narxlar to'g'ri qoladi — faqat yorliq buziladi).
+        # Kassir tanlagan ro'yxat chekda ham to'g'ri ko'rinishi uchun
+        # submit'dan KEYIN ham mustahkamlaymiz.
+        if desired_price_list and invoice_doc.selling_price_list != desired_price_list:
+            frappe.db.set_value(
+                invoice_doc.doctype,
+                invoice_doc.name,
+                "selling_price_list",
+                desired_price_list,
+                update_modified=False,
+            )
+            invoice_doc.selling_price_list = desired_price_list
 
         _create_change_payment_entries(invoice_doc, data, pos_profile, cash_account)
         redeeming_customer_credit(invoice_doc, data, is_payment_entry, total_cash, cash_account, payments)

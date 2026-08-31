@@ -69,7 +69,8 @@ def get_customer_balance(customer):
             """
             SELECT SUM(debit - credit) AS balance
             FROM `tabGL Entry`
-            WHERE party_type = 'Customer' AND party = %s AND docstatus = 1
+            WHERE party_type = 'Customer' AND party = %s
+              AND is_cancelled = 0
         """,
             (customer,),
             as_dict=True,
@@ -80,8 +81,10 @@ def get_customer_balance(customer):
             "customer_name": customer_name,
         }
     except Exception as e:
-        frappe.log_error(f"Error fetching customer balance: {e}")
-        return {"balance": 0, "customer_name": None}
+        # 2026-08-31 audit: xatoni yutib balance=0 qaytarish qarzdor mijozni
+        # "qarzsiz" ko'rsatardi — endi xato ochiq qaytadi, kassir ko'radi.
+        frappe.log_error("Customer balance error", f"{customer}: {e}")
+        frappe.throw(_("Mijoz balansini olib bo'lmadi: {0}").format(customer))
 
 
 @frappe.whitelist()

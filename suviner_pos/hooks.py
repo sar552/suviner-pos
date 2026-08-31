@@ -92,6 +92,9 @@ doc_events = {
         "validate": "suviner_pos.suviner_pos.api.invoice.validate",
         "before_submit": "suviner_pos.suviner_pos.api.invoice.before_submit",
         "before_cancel": "suviner_pos.suviner_pos.api.invoice.before_cancel",
+        # kredit-redeem Journal Entry'lari chek bekor bo'lganda avtomatik
+        # bekor bo'lishi uchun (2026-08-31 audit: hook ro'yxatdan tushib qolgan)
+        "on_cancel": "suviner_pos.suviner_pos.api.invoice.on_cancel",
     },
     "POS Invoice": {
         "validate": "suviner_pos.suviner_pos.api.invoice.validate",
@@ -281,6 +284,17 @@ fixtures = [
                     "POS Invoice-posa_pos_opening_shift-no_copy",
                     "Sales Invoice Reference-sales_invoice-reqd",
                     "Sales Invoice-update_outstanding_for_self-default",
+                    "POS Profile-hide_images-hidden",
+                    "POS Profile-hide_unavailable_items-hidden",
+                    "POS Profile-auto_add_item_to_cart-hidden",
+                    "POS Profile-validate_stock_on_save-hidden",
+                    "POS Profile-print_receipt_on_order_complete-hidden",
+                    "POS Profile-ignore_pricing_rule-hidden",
+                    "POS Profile-allow_rate_change-hidden",
+                    "POS Profile-allow_discount_change-hidden",
+                    "POS Profile-disable_grand_total_to_default_mop-hidden",
+                    "POS Profile-allow_partial_payment-hidden",
+                    "POS Profile-disable_rounded_total-hidden",
                 ),
             ]
         ],

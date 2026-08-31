@@ -392,6 +392,11 @@ def get_cashiers(doctype, txt, searchfield, start, page_len, filters):
 
 @frappe.whitelist()
 def get_pos_invoices(pos_opening_shift, doctype=None):
+    # XAVFSIZLIK: doctype to'g'ridan-to'g'ri jadval nomiga qo'yiladi —
+    # faqat ikkita ruxsatli qiymat qabul qilinadi (SQL-injection himoyasi,
+    # 2026-08-31 audit).
+    if doctype and doctype not in ("Sales Invoice", "POS Invoice"):
+        frappe.throw(_("Invalid doctype"))
     if not doctype:
         pos_profile = frappe.db.get_value("POS Opening Shift", pos_opening_shift, "pos_profile")
         use_pos_invoice = frappe.db.get_value(
@@ -1168,14 +1173,26 @@ def make_closing_shift_from_opening(opening_shift):
                     amount = get_base_value(p, "amount", "base_amount", conversion_rate)
                 existing_pay[0].expected_amount += flt(amount)
             else:
+                # DIQQAT: birinchi (yangi) qatorda ham qaytim (change_amount)
+                # naqd rejimidan ayirilishi shart — ilgari faqat mavjud
+                # qatorga qo'shishda ayirilib, smenaning BIRINCHI naqd cheki
+                # qaytimni expected'ga qo'shib yuborardi (2026-08-31 audit).
+                new_cash_mode = frappe.get_value(
+                    "POS Profile",
+                    opening_shift.get("pos_profile"),
+                    "posa_cash_mode_of_payment",
+                ) or "Cash"
+                new_amount = get_base_value(p, "amount", "base_amount", d.get("conversion_rate"))
+                if p.mode_of_payment == new_cash_mode:
+                    new_amount -= get_base_value(
+                        d, "change_amount", "base_change_amount", d.get("conversion_rate")
+                    )
                 payments.append(
                     frappe._dict(
                         {
                             "mode_of_payment": p.mode_of_payment,
                             "opening_amount": 0,
-                            "expected_amount": get_base_value(
-                                p, "amount", "base_amount", d.get("conversion_rate")
-                            ),
+                            "expected_amount": flt(new_amount),
                         }
                     )
                 )

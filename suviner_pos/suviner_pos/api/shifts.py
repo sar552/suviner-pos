@@ -49,9 +49,26 @@ def get_opening_dialog_data():
         order_by="parent",
         ignore_permissions=True,
     )
-    # set currency from pos profile
+    # v15 saytda POS Profile to'lovlari posawesome merosi bo'lgan
+    # "POS Payment Method" jadvalida turishi mumkin — yuqoridagi so'rov
+    # bo'sh chiqsa o'sha yerdan olamiz (aks holda ochilish oynasi klient
+    # zaxira ro'yxatiga tushib, to'lov turi (naqd/bank) ma'lumotisiz qolardi).
+    if not data["payments_method"]:
+        data["payments_method"] = frappe.get_list(
+            "POS Payment Method",
+            filters={"parent": ["in", pos_profiles_list]},
+            fields=["*"],
+            limit_page_length=0,
+            order_by="parent",
+            ignore_permissions=True,
+        )
+    # set currency from pos profile + MOP turi (ochilishda faqat NAQD so'raladi)
     for mode in data["payments_method"]:
         mode["currency"] = frappe.get_cached_value("POS Profile", mode["parent"], "currency")
+        if mode.get("mode_of_payment") and not mode.get("type"):
+            mode["type"] = frappe.get_cached_value(
+                "Mode of Payment", mode["mode_of_payment"], "type"
+            )
 
     return data
 

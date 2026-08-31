@@ -800,10 +800,11 @@ def process_pos_payment(payload):
     if not data.pos_profile.get("posa_use_pos_awesome_payments"):
         frappe.throw(_("Suviner POS Payments is not enabled for this POS Profile"))
 
-    # Log short summary only to avoid truncation
-    frappe.log_error(
-        f"Payment request from {data.customer} for {data.total_payment_methods} amount with {len(data.selected_invoices)} invoices",
-        "POS Payment Debug",
+    # 2026-08-31 audit: har to'lovda Error Log hujjati yaratish — spam;
+    # oddiy log yetarli
+    frappe.logger("suviner_pos").info(
+        "POS payment: %s, %s, %s invoices",
+        data.customer, data.total_payment_methods, len(data.selected_invoices or []),
     )
 
     # validate data
